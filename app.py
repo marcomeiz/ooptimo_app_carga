@@ -17,17 +17,22 @@ from dotenv import load_dotenv
 ###############################################################################
 def load_environment():
     """
-    Carga las variables de entorno desde un archivo .env especificado en la
-    variable de entorno ENV_FILE. Si no se encuentra, intenta con .env.
-    Verifica que las variables requeridas estén presentes.
+    Carga las variables de entorno desde .env o desde Streamlit Secrets
     """
-    env_file = os.getenv('ENV_FILE', '.env')
-    if os.path.exists(env_file):
-        load_dotenv(env_file)
-    elif os.path.exists('.env'):
-        load_dotenv('.env')
-    else:
-        raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
+    # Try to load from streamlit secrets first
+    try:
+        for key in st.secrets:
+            os.environ[key] = st.secrets[key]
+        return
+    except (AttributeError, FileNotFoundError):
+        # If not in streamlit cloud, try local .env
+        env_file = os.getenv('ENV_FILE', '.env')
+        if os.path.exists(env_file):
+            load_dotenv(env_file)
+        elif os.path.exists('.env'):
+            load_dotenv('.env')
+        else:
+            raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
 
     # Variables obligatorias
     required_vars = [
