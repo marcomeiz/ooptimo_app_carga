@@ -116,12 +116,17 @@ def obtener_token_cor(api_key, client_secret):
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
+    # Debug logging
+    st.write("URL:", url_token)
+    st.write("API Key length:", len(api_key) if api_key else "None")
+    st.write("Client Secret length:", len(client_secret) if client_secret else "None")
+
     resp = requests.post(url_token, headers=headers)
     if resp.status_code == 200:
         data = resp.json()
         return data.get("access_token")
     else:
-        print("Error al obtener el token:", resp.status_code, resp.text)
+        st.error(f"Error al obtener el token: {resp.status_code} {resp.text}")
         return None
 
 def obtener_tareas_cor(access_token, page=1, per_page=10):
@@ -366,7 +371,7 @@ def main():
     # Botón para refrescar datos
     if st.button("🔄 Actualizar Datos"):
         st.cache_data.clear()
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("---")
 
