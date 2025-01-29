@@ -21,18 +21,18 @@ def load_environment():
     """
     # Try to load from streamlit secrets first
     try:
-        for key in st.secrets:
-            os.environ[key] = st.secrets[key]
-        return
-    except (AttributeError, FileNotFoundError):
-        # If not in streamlit cloud, try local .env
-        env_file = os.getenv('ENV_FILE', '.env')
-        if os.path.exists(env_file):
-            load_dotenv(env_file)
-        elif os.path.exists('.env'):
-            load_dotenv('.env')
-        else:
-            raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
+        if st.secrets:
+            for key, value in st.secrets.items():
+                os.environ[key] = str(value)
+            return
+    except Exception:
+        pass
+
+    # If not in streamlit cloud, try local .env
+    if os.path.exists('.env'):
+        load_dotenv('.env')
+    else:
+        raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
 
     # Variables obligatorias
     required_vars = [
