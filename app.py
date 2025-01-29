@@ -116,11 +116,6 @@ def obtener_token_cor(api_key, client_secret):
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    # Debug logging
-    st.write("URL:", url_token)
-    st.write("API Key length:", len(api_key) if api_key else "None")
-    st.write("Client Secret length:", len(client_secret) if client_secret else "None")
-
     resp = requests.post(url_token, headers=headers)
     if resp.status_code == 200:
         data = resp.json()
