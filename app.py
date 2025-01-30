@@ -1,8 +1,16 @@
 ################################################################################
 # app.py
 ################################################################################
-import os
+
 import streamlit as st
+# (1) Set page config debe ser lo primero que hagamos con Streamlit
+st.set_page_config(
+    layout="wide",
+    page_title="Dashboard de horas y ausencias",
+    initial_sidebar_state="collapsed"
+)
+
+import os
 import requests
 import pandas as pd
 import holidays
@@ -12,58 +20,54 @@ from workalendar.europe.spain import Catalonia
 from calendar import monthrange
 from dotenv import load_dotenv
 
-###############################################################################
-# 0. FUNCIÓN PARA CARGAR ENTORNO (.env) CON FALLBACK Y VERIFICACIÓN
-###############################################################################
+# (2) Importamos la configuración desde config.py y cargamos sus valores
+from config import Config
+config = Config.load_config()
+
+################################################################################
+# 0. FUNCIÓN PARA CARGAR ENTORNO (.env) CON FALLBACK Y VERIFICACIÓN (SIN USO)
+################################################################################
 def load_environment():
     """
-    Carga las variables de entorno desde .env o desde Streamlit Secrets
+    Carga las variables de entorno desde .env o desde Streamlit Secrets.
+    (NOTA: Ya no se utiliza, pero se deja el código tal cual sin eliminarlo.)
     """
-    # Try to load from streamlit secrets first
-    try:
-        if st.secrets:
-            for key, value in st.secrets.items():
-                os.environ[key] = str(value)
-            return
-    except Exception:
-        pass
+    # try:
+    #     if st.secrets:
+    #         for key, value in st.secrets.items():
+    #             os.environ[key] = str(value)
+    #         return
+    # except Exception:
+    #     pass
 
-    # If not in streamlit cloud, try local .env
-    if os.path.exists('.env'):
-        load_dotenv('.env')
-    else:
-        raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
+    # if os.path.exists('.env'):
+    #     load_dotenv('.env')
+    # else:
+    #     raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
 
-    # Variables obligatorias
-    required_vars = [
-        'FACTORIAL_API_KEY',
-        'FACTORIAL_BASE_URL',
-        'COR_API_KEY',
-        'COR_CLIENT_SECRET',
-        'COR_BASE_URL'
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    if missing_vars:
-        raise ValueError(f"Faltan variables de entorno requeridas: {', '.join(missing_vars)}")
+    # required_vars = [
+    #     'FACTORIAL_API_KEY',
+    #     'FACTORIAL_BASE_URL',
+    #     'COR_API_KEY',
+    #     'COR_CLIENT_SECRET',
+    #     'COR_BASE_URL'
+    # ]
+    # missing_vars = [var for var in required_vars if not os.getenv(var)]
+    # if missing_vars:
+    #     raise ValueError(f"Faltan variables de entorno requeridas: {', '.join(missing_vars)}")
 
+# (Estaba aquí la llamada a load_environment(), la omitimos para usar config)
 
-# Llamamos a la función para cargar variables de entorno y verificar
-load_environment()
-
-###############################################################################
+################################################################################
 # 1. CONFIGURACIONES Y CONSTANTES
-###############################################################################
-st.set_page_config(
-    layout="wide",
-    page_title="Dashboard de horas y ausencias",
-    initial_sidebar_state="collapsed"  # Oculta la sidebar por defecto
-)
+################################################################################
 
-FACTORIAL_API_KEY = os.getenv("FACTORIAL_API_KEY")
-FACTORIAL_BASE_URL = os.getenv("FACTORIAL_BASE_URL")
-API_KEY_COR = os.getenv("COR_API_KEY")
-CLIENT_SECRET_COR = os.getenv("COR_CLIENT_SECRET")
-BASE_URL_COR = os.getenv("COR_BASE_URL")
+# Usamos los valores cargados desde config
+FACTORIAL_API_KEY = config['FACTORIAL_API_KEY']
+FACTORIAL_BASE_URL = config['FACTORIAL_BASE_URL']
+API_KEY_COR = config['COR_API_KEY']
+CLIENT_SECRET_COR = config['COR_CLIENT_SECRET']
+BASE_URL_COR = config['COR_BASE_URL']
 
 HEADERS_FACTORIAL = {
     "accept": "application/json",
@@ -97,9 +101,9 @@ NOMBRE_MAPPING = {
     "mar esteva fàbrega": "mar esteva fabrega"
 }
 
-###############################################################################
+################################################################################
 # 2. FUNCIONES AUXILIARES
-###############################################################################
+################################################################################
 def normalizar_nombre(nombre):
     """Normaliza el nombre del empleado para unificar diferentes versiones."""
     nombre_norm = ' '.join(nombre.lower().strip().split())
@@ -316,9 +320,9 @@ def descargar_datos():
 
     return empleadosPorMes
 
-###############################################################################
+################################################################################
 # 3. FUNCIÓN PRINCIPAL (DASHBOARD)
-###############################################################################
+################################################################################
 def main():
     # CSS responsivo para modo claro/oscuro
     st.markdown("""
@@ -398,16 +402,13 @@ def main():
         meses_mostrados = todos_los_meses[-5:] if len(todos_los_meses) > 5 else todos_los_meses
         default_index = len(meses_mostrados) - 1
 
-    # Add this CSS to adjust the selectbox
     st.markdown("""
         <style>
-        /* Selectbox container */
+        /* Ajuste visual del selectbox */
         div[data-testid="stSelectbox"] {
             max-width: 200px;
-            margin: 0;  /* Remove auto margins */
+            margin: 0;
         }
-        
-        /* Selectbox input */
         div[data-testid="stSelectbox"] > div > div {
             max-width: 200px;
         }
@@ -421,7 +422,7 @@ def main():
         index=default_index,
         label_visibility="collapsed"
     )
-    
+
     colaboradores_mes = empleados_data.get(mes_seleccionado, {})
     if not colaboradores_mes:
         st.info(f"No hay colaboradores con horas en {mes_seleccionado}")
@@ -465,28 +466,28 @@ def main():
     st.markdown(metrics_style, unsafe_allow_html=True)
 
     with col1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">📅 Días laborables</div>
-            <div class="metric-value">{}</div>
+            <div class="metric-value">{dias_laborables}</div>
         </div>
-        """.format(dias_laborables), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
     with col2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">🎉 Festivos laborables</div>
-            <div class="metric-value">{}</div>
+            <div class="metric-value">{festivos_laborables}</div>
         </div>
-        """.format(festivos_laborables), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
     with col3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
             <div class="metric-title">⏰ Horas por día</div>
-            <div class="metric-value">{}</div>
+            <div class="metric-value">{horas_por_dia}</div>
         </div>
-        """.format(horas_por_dia), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("""
@@ -495,7 +496,7 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    # Calculate totals
+    # Totales
     total_horas_disponibles = 0
     total_horas_estimadas = 0
     total_horas_cargadas = 0
@@ -509,9 +510,8 @@ def main():
             total_horas_estimadas += info.get("horas_estimadas", 0)
             total_horas_cargadas += info.get("horas_cargadas", 0)
 
-    # Enhanced metrics display
     col1, col2, col3 = st.columns(3)
-    
+
     metric_style = """
     <style>
     div[data-testid="metric-container"] {
@@ -544,15 +544,22 @@ def main():
         )
 
     with col2:
+        if total_horas_disponibles > 0:
+            est_pct = (total_horas_estimadas / total_horas_disponibles) * 100
+        else:
+            est_pct = 0
         st.metric(
             label="Total Horas Estimadas",
             value=f"{total_horas_estimadas:.1f}h",
-            delta=f"{(total_horas_estimadas/total_horas_disponibles*100):.1f}% de ocupación",
+            delta=f"{est_pct:.1f}% de ocupación",
             delta_color="off"
         )
 
     with col3:
-        ocupacion_real = (total_horas_cargadas/total_horas_disponibles*100)
+        if total_horas_disponibles > 0:
+            ocupacion_real = (total_horas_cargadas / total_horas_disponibles) * 100
+        else:
+            ocupacion_real = 0
         st.metric(
             label="Total Horas Cargadas",
             value=f"{total_horas_cargadas:.1f}h",
@@ -560,10 +567,9 @@ def main():
             delta_color="inverse"
         )
 
-    # Add a small spacing
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Tabla detallada
+    # Detalle por colaborador
     data_rows = []
     for colaborador, info in colaboradores_mes.items():
         if normalizar_nombre(colaborador) in EMPLEADOS_NO_PRODUCTIVOS:
@@ -595,7 +601,7 @@ def main():
         df,
         use_container_width=True,
         hide_index=True,
-        height=min(len(df) * 35 + 40, 800),  # 35px per row + 40px header
+        height=min(len(df) * 35 + 40, 800),
         column_config={
             "Carga %": st.column_config.ProgressColumn(
                 "Carga %",
@@ -607,7 +613,6 @@ def main():
         }
     )
 
-    # Gráfico
     st.subheader("Gráfico de horas estimadas vs. disponibles")
     if not df.empty:
         fig = go.Figure()
@@ -616,14 +621,14 @@ def main():
             name='Horas Estimadas',
             x=df["Colaborador"],
             y=df["Horas Estimadas (COR)"],
-            marker_color='rgb(25, 40, 150)'  # Azul oscuro
+            marker_color='rgb(25, 40, 150)'
         ))
 
         fig.add_trace(go.Bar(
             name='Horas Cargadas',
             x=df["Colaborador"],
             y=df["Horas Cargadas (COR)"],
-            marker_color='rgb(144, 202, 249)'  # Azul claro
+            marker_color='rgb(144, 202, 249)'
         ))
 
         fig.add_trace(go.Scatter(
@@ -635,7 +640,6 @@ def main():
             marker=dict(size=8)
         ))
 
-        # Ajustar altura y ejes
         fig.update_layout(
             height=400,
             margin=dict(t=20),
@@ -645,7 +649,6 @@ def main():
             xaxis=dict(tickangle=45)
         )
 
-        # Asegurar un rango Y razonable
         y_max = max(200, df["Horas Disponibles (c/Buffer)"].max() + 10)
         fig.update_yaxes(range=[0, y_max])
         fig.update_traces(opacity=0.75, selector=dict(type='bar'))
@@ -653,16 +656,16 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("""
         **Interpretación del gráfico:**
-        - Barras azul oscuro: Horas estimadas para las tareas
-        - Barras azul claro: Horas ya cargadas
-        - Línea roja: Horas disponibles (con buffer)
+        - Barras azul oscuro: Horas estimadas para las tareas  
+        - Barras azul claro: Horas ya cargadas  
+        - Línea roja: Horas disponibles (con buffer)  
         """)
 
     st.markdown("---")
     st.write("Fin del dashboard. ¡Puedes cambiar de mes en la parte superior!")
 
-###############################################################################
+################################################################################
 # 4. EJECUCIÓN PRINCIPAL
-###############################################################################
+################################################################################
 if __name__ == "__main__":
     main()
