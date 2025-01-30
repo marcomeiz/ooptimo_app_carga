@@ -15,7 +15,12 @@ class Config:
             'COR_BASE_URL'
         ]
 
-        # Production: Try Streamlit Cloud secrets
+        # First try: Direct environment variables
+        config = {var: os.environ.get(var) for var in required_vars}
+        if all(config.values()):
+            return config
+
+        # Second try: Streamlit Cloud secrets
         try:
             import streamlit as st
             if hasattr(st, 'secrets') and st.secrets:
@@ -23,13 +28,13 @@ class Config:
         except Exception:
             pass
 
-        # Development: Load from .env file
+        # Last try: Local development with .env
         if Path('.env').exists():
             load_dotenv()
+            config = {var: os.getenv(var) for var in required_vars}
+            if all(config.values()):
+                return config
 
-        # Get configuration from environment
-        config = {var: os.getenv(var) for var in required_vars}
-        if not any(config.values()):
-            raise ValueError("No configuration found")
-
-        return config
+        # If we get here, show what values we actually have
+        missing = [var for var in required_vars if not config.get(var)]
+        raise ValueError(f"Missing configuration values: {', '.join(missing)}")
