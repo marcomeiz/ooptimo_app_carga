@@ -5,4 +5,3 @@ holidays>=0.28
 workalendar>=17.0.0
 python-dotenv>=1.0.0
 plotly>=5.15.0
-gunicorn>=20.1.0
