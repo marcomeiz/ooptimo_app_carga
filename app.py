@@ -24,39 +24,6 @@ from dotenv import load_dotenv
 from config import Config
 config = Config.load_config()
 
-################################################################################
-# 0. FUNCIÓN PARA CARGAR ENTORNO (.env) CON FALLBACK Y VERIFICACIÓN (SIN USO)
-################################################################################
-def load_environment():
-    """
-    Carga las variables de entorno desde .env o desde Streamlit Secrets.
-    (NOTA: Ya no se utiliza, pero se deja el código tal cual sin eliminarlo.)
-    """
-    # try:
-    #     if st.secrets:
-    #         for key, value in st.secrets.items():
-    #             os.environ[key] = str(value)
-    #         return
-    # except Exception:
-    #     pass
-
-    # if os.path.exists('.env'):
-    #     load_dotenv('.env')
-    # else:
-    #     raise FileNotFoundError("No se encontró ningún archivo .env en el proyecto.")
-
-    # required_vars = [
-    #     'FACTORIAL_API_KEY',
-    #     'FACTORIAL_BASE_URL',
-    #     'COR_API_KEY',
-    #     'COR_CLIENT_SECRET',
-    #     'COR_BASE_URL'
-    # ]
-    # missing_vars = [var for var in required_vars if not os.getenv(var)]
-    # if missing_vars:
-    #     raise ValueError(f"Faltan variables de entorno requeridas: {', '.join(missing_vars)}")
-
-# (Estaba aquí la llamada a load_environment(), la omitimos para usar config)
 
 ################################################################################
 # 1. CONFIGURACIONES Y CONSTANTES
@@ -586,14 +553,14 @@ def main():
 
         data_rows.append({
             "Colaborador": colaborador,
+            "Carga %": min(pct_est, 100),
             "Vacaciones (días)": v,
             "Otras ausencias (días)": oa,
             "Teletrabajo (días)": tele,
             "Horas brutas mes": round(horas_mes_brutas, 1),
             "Horas Cargadas (COR)": round(hc, 1),
             "Horas Estimadas (COR)": round(he, 1),
-            "Horas Disponibles (c/Buffer)": round(horas_disp, 1),
-            "Carga %": min(pct_est, 100)
+            "Horas Disponibles (c/Buffer)": round(horas_disp, 1)
         })
     df = pd.DataFrame(data_rows)
 
