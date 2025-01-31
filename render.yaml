@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ooptimo-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py
+    envVars:
+      - key: PORT
+        value: 8080
+    autoDeploy: true
