@@ -543,24 +543,23 @@ def main():
             continue
         v = info.get("vacaciones", 0)
         oa = info.get("otras_ausencias", 0)
-        tele = info.get("teletrabajo", 0)
 
         horas_disp = calcular_horas_disponibles(anio, mes_num, v, oa, buffer_porcentaje=0.1)
         hc = info.get("horas_cargadas", 0)
         he = info.get("horas_estimadas", 0)
 
         pct_est = (he / horas_disp * 100) if horas_disp > 0 else 0
+        horas_disponibles_reales = horas_disp - he
 
         data_rows.append({
             "Colaborador": colaborador,
             "Carga %": min(pct_est, 100),
             "Vacaciones (días)": v,
             "Otras ausencias (días)": oa,
-            "Teletrabajo (días)": tele,
-            "Horas brutas mes": round(horas_mes_brutas, 1),
-            "Horas Cargadas (COR)": round(hc, 1),
+            "Horas Disponibles (c/Buffer)": round(horas_disp, 1),
             "Horas Estimadas (COR)": round(he, 1),
-            "Horas Disponibles (c/Buffer)": round(horas_disp, 1)
+            "Horas Disponibles Reales": round(horas_disponibles_reales, 1),
+            "Horas Cargadas (COR)": round(hc, 1)
         })
     df = pd.DataFrame(data_rows)
 
@@ -576,6 +575,22 @@ def main():
                 format="%d%%",
                 min_value=0,
                 max_value=100,
+            ),
+            "Horas Disponibles (c/Buffer)": st.column_config.NumberColumn(
+                "Horas Disponibles (c/Buffer) ℹ️",
+                help="Horas disponibles del mes después de restar vacaciones, ausencias y un 10% de buffer para imprevistos"
+            ),
+            "Horas Estimadas (COR)": st.column_config.NumberColumn(
+                "Horas Estimadas (COR) ℹ️",
+                help="Horas planificadas en las tareas asignadas en COR"
+            ),
+            "Horas Disponibles Reales": st.column_config.NumberColumn(
+                "Horas Disponibles Reales ℹ️",
+                help="Horas realmente disponibles: Horas disponibles con buffer menos las horas estimadas"
+            ),
+            "Horas Cargadas (COR)": st.column_config.NumberColumn(
+                "Horas Cargadas (COR) ℹ️",
+                help="Horas ya registradas/imputadas en las tareas de COR"
             )
         }
     )
