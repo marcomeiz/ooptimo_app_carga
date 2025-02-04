@@ -117,12 +117,29 @@ def calcular_dias_laborables_por_mes(inicio, fin):
     return dias_laborables.to_series().groupby(dias_laborables.to_period("M")).size()
 
 def obtener_ausencias():
-    """Obtiene todas las ausencias desde Factorial."""
+    """Obtiene todas las ausencias desde Factorial"""
     url = f"{FACTORIAL_BASE_URL}/resources/timeoff/leaves"
-    response = requests.get(url, headers=HEADERS_FACTORIAL, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-    return data.get('data', [])
+    params = {
+        'per_page': 100,
+        'page': 1,
+        'include_future': True
+    }
+    
+    todas_ausencias = []
+    while True:
+        response = requests.get(url, headers=HEADERS_FACTORIAL, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        ausencias_pagina = data.get('data', [])
+        if not ausencias_pagina:
+            break
+        todas_ausencias.extend(ausencias_pagina)
+        if data.get('meta', {}).get('next_page'):
+            params['page'] += 1
+        else:
+            break
+    
+    return todas_ausencias
 
 def calcular_ausencias_empleado(empleado_nombre, anio, mes):
     """Calcula los días de ausencia (vacaciones, otras ausencias, teletrabajo)."""
@@ -131,11 +148,12 @@ def calcular_ausencias_empleado(empleado_nombre, anio, mes):
     dias_otras_ausencias = 0
     dias_teletrabajo = 0
 
-    # IDs de ausencia que NO descuentan horas
-    ids_no_descuentan = {2280065}  # Ajustar a tus IDs
-    ID_VACACIONES = 2276680        # Ajustar a tu ID de "Vacaciones"
+    # IDs de ausencia que NO descuentan horas (solo teletrabajo)
+    ids_no_descuentan = {2280065}  # Día extra teletrabajo
+    ID_VACACIONES = 2276680
 
     empleado_nombre_norm = normalizar_nombre(empleado_nombre)
+    mes_objetivo = pd.Period(f"{anio}-{mes:02d}")
 
     for ausencia in all_ausencias:
         nombre_ausencia = normalizar_nombre(ausencia.get("employee_full_name", ""))
@@ -144,20 +162,24 @@ def calcular_ausencias_empleado(empleado_nombre, anio, mes):
 
         inicio = pd.to_datetime(ausencia["start_on"])
         fin = pd.to_datetime(ausencia["finish_on"])
+        mes_inicio = pd.Period(inicio, freq='M')
+        mes_fin = pd.Period(fin, freq='M')
 
-        # Asume que la ausencia no cruza múltiples meses
-        if (inicio.year == anio and inicio.month == mes):
-            dias_periodo = calcular_dias_laborables_por_mes(inicio, fin)
-            clave_mes = pd.Period(f"{anio}-{mes:02d}")
-            total_dias = dias_periodo.get(clave_mes, 0)
+        # Skip if the absence doesn't overlap with target month
+        if mes_objetivo < mes_inicio or mes_objetivo > mes_fin:
+            continue
 
-            tipo_id = ausencia.get("leave_type_id")
-            if tipo_id in ids_no_descuentan:
-                dias_teletrabajo += total_dias
-            elif tipo_id == ID_VACACIONES:
-                dias_vacaciones += total_dias
-            else:
-                dias_otras_ausencias += total_dias
+        # Get days for this specific month
+        dias_periodo = calcular_dias_laborables_por_mes(inicio, fin)
+        dias = dias_periodo.get(mes_objetivo, 0)
+
+        tipo_id = ausencia.get("leave_type_id")
+        if tipo_id in ids_no_descuentan:
+            dias_teletrabajo += dias
+        elif tipo_id == ID_VACACIONES:
+            dias_vacaciones += dias
+        else:  # All other absence types count as otras_ausencias
+            dias_otras_ausencias += dias
 
     return dias_vacaciones, dias_otras_ausencias, dias_teletrabajo
 
@@ -186,20 +208,26 @@ def calcular_horas_disponibles(year, month, dias_vacaciones, dias_otras_ausencia
     """
     Calcula horas disponibles tras restar vacaciones, ausencias y buffer.
     En agosto: 7h/día, resto: 8h/día.
+    El buffer se ajusta proporcionalmente según los días de ausencia.
     """
     dias_laborables, _ = calcular_dias_laborables_festivos(year, month)
     horas_por_dia = 7 if month == 8 else 8
+    dias_ausencia_total = dias_vacaciones + dias_otras_ausencias
 
     horas_brutas = dias_laborables * horas_por_dia
-    horas_vacaciones = dias_vacaciones * horas_por_dia
-    horas_ausencias = dias_otras_ausencias * horas_por_dia
+    horas_ausencias = dias_ausencia_total * horas_por_dia
 
-    buffer = horas_brutas * buffer_porcentaje
-    return horas_brutas - horas_vacaciones - horas_ausencias - buffer
+    # Calculamos el porcentaje de ausencia del mes
+    porcentaje_ausencia = dias_ausencia_total / dias_laborables if dias_laborables > 0 else 1
+    # El buffer se reduce proporcionalmente según el porcentaje de ausencia
+    buffer = (horas_brutas - horas_ausencias) * buffer_porcentaje * (1 - porcentaje_ausencia)
+    
+    return max(0, horas_brutas - horas_ausencias - buffer)
 
 @st.cache_data(show_spinner=True)
 def descargar_datos():
     """Descarga tareas de COR y ausencias de Factorial, genera dict empleadosPorMes."""
+    st.cache_data.clear()  # Clear cache at the start
     access_token = obtener_token_cor(API_KEY_COR, CLIENT_SECRET_COR)
     if not access_token:
         st.error("No se pudo obtener el token de COR. Revisa credenciales.")
