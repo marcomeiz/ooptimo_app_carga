@@ -1,0 +1,7 @@
+streamlit>=1.24.0
+requests>=2.31.0
+pandas>=2.0.3
+holidays>=0.28
+workalendar>=17.0.0
+python-dotenv>=1.0.0
+plotly>=5.15.0
