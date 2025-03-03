@@ -112,9 +112,13 @@ def obtener_tareas_cor(access_token, page=1, per_page=10):
 
 def calcular_dias_laborables_por_mes(inicio, fin):
     """Días laborables por mes (excluyendo sábados, domingos y festivos)."""
-    dias = pd.date_range(start=inicio, end=fin, freq='B')  # L-V
-    dias_laborables = dias[~dias.isin(festivos_barcelona)]  # Excluir festivos
-    return dias_laborables.to_series().groupby(dias_laborables.to_period("M")).size()
+    try:
+        dias = pd.date_range(start=inicio, end=fin, freq='B')  # L-V
+        dias_laborables = dias[~dias.isin(festivos_barcelona)]  # Excluir festivos
+        return dias_laborables.to_series().groupby(dias_laborables.to_period("M")).size()
+    except ValueError:
+        # Handle future dates by returning an empty Series
+        return pd.Series(dtype=int)
 
 def obtener_ausencias():
     """Obtiene todas las ausencias desde Factorial"""
@@ -305,10 +309,16 @@ def descargar_datos():
             mes = NOMBRES_MESES.index(mes_nombre) + 1
 
             for colaborador in colaboradores:
-                vac, otras, tele = calcular_ausencias_empleado(colaborador, anio, mes)
-                empleadosPorMes[sheet_name][colaborador]["vacaciones"] = vac
-                empleadosPorMes[sheet_name][colaborador]["otras_ausencias"] = otras
-                empleadosPorMes[sheet_name][colaborador]["teletrabajo"] = tele
+                try:
+                    vac, otras, tele = calcular_ausencias_empleado(colaborador, anio, mes)
+                    empleadosPorMes[sheet_name][colaborador]["vacaciones"] = vac
+                    empleadosPorMes[sheet_name][colaborador]["otras_ausencias"] = otras
+                    empleadosPorMes[sheet_name][colaborador]["teletrabajo"] = tele
+                except ValueError as e:
+                    print(f"Error procesando ausencias para {colaborador} en {sheet_name}: {e}")
+                    empleadosPorMes[sheet_name][colaborador]["vacaciones"] = 0
+                    empleadosPorMes[sheet_name][colaborador]["otras_ausencias"] = 0
+                    empleadosPorMes[sheet_name][colaborador]["teletrabajo"] = 0
 
         except Exception as e:
             print(f"Error procesando {sheet_name}: {e}")
@@ -412,10 +422,10 @@ def main():
 
     st.write("Selecciona un mes/año para analizar:")
     mes_seleccionado = st.selectbox(
-        "",
+        label="Selección de mes y año",  # Added proper label
         options=meses_mostrados,
         index=default_index,
-        label_visibility="collapsed"
+        label_visibility="collapsed"  # Keep it hidden
     )
 
     colaboradores_mes = empleados_data.get(mes_seleccionado, {})
